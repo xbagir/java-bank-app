@@ -1,0 +1,50 @@
+server:
+  port: 8081
+
+spring:
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+      routes:
+        - id: accounts
+          uri: lb://accounts
+          predicates:
+            - Path=/api/accounts/**
+          filters:
+            - StripPrefix=1
+            - name: CircuitBreaker
+              args:
+                name: accountsCircuitBreaker
+                fallbackUri: forward:/fallback/accounts
+        - id: cash
+          uri: lb://cash
+          predicates:
+            - Path=/api/cash/**
+          filters:
+            - StripPrefix=1
+            - name: CircuitBreaker
+              args:
+                name: cashCircuitBreaker
+                fallbackUri: forward:/fallback/cash
+        - id: transfer
+          uri: lb://transfer
+          predicates:
+            - Path=/api/transfer/**
+          filters:
+            - StripPrefix=1
+            - name: CircuitBreaker
+              args:
+                name: transferCircuitBreaker
+                fallbackUri: forward:/fallback/transfer
+        - id: notifications
+          uri: lb://notifications
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - StripPrefix=1
+            - name: CircuitBreaker
+              args:
+                name: notificationsCircuitBreaker
+                fallbackUri: forward:/fallback/notifications
