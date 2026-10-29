@@ -1,0 +1,51 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: accounts
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/accounts_db
+    username: ${DB_USER:accounts_user}
+    password: ${DB_PASSWORD:accounts_pass}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER:http://localhost:8180/realms/bank}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/bank/protocol/openid-connect/certs}
+      client:
+        registration:
+          keycloak:
+            provider: keycloak
+            client-id: accounts-service
+            client-secret: ${ACCOUNTS_CLIENT_SECRET:accounts-secret}
+            authorization-grant-type: client_credentials
+            scope: notifications.write
+        provider:
+          keycloak:
+            token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8180/realms/bank/protocol/openid-connect/token}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+
+outbox:
+  publish-delay: 5000
+  max-attempts: 5
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
