@@ -10,18 +10,22 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "outbox_events")
 public class OutboxEvent {
 
     public enum Status {
-        PENDING, SENT, FAILED
+        PENDING, PROCESSING, SENT, FAILED
     }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "event_id", nullable = false, unique = true)
+    private UUID eventId;
 
     @Column(nullable = false, length = 100)
     private String recipient;
@@ -45,10 +49,17 @@ public class OutboxEvent {
     @Column(name = "processed_at")
     private Instant processedAt;
 
+    @Column(name = "locked_at")
+    private Instant lockedAt;
+
+    @Column(name = "last_error", length = 1000)
+    private String lastError;
+
     protected OutboxEvent() {
     }
 
     public OutboxEvent(String recipient, String type, String message) {
+        this.eventId = UUID.randomUUID();
         this.recipient = recipient;
         this.type = type;
         this.message = message;
@@ -57,21 +68,35 @@ public class OutboxEvent {
         this.createdAt = Instant.now();
     }
 
+    public void markProcessing() {
+        this.status = Status.PROCESSING;
+        this.lockedAt = Instant.now();
+    }
+
     public void markSent() {
         this.status = Status.SENT;
         this.processedAt = Instant.now();
+        this.lockedAt = null;
     }
 
-    public void recordFailure(int maxAttempts) {
+    public void recordFailure(int maxAttempts, String error) {
         this.retryCount++;
+        this.lastError = error;
+        this.lockedAt = null;
         if (this.retryCount >= maxAttempts) {
             this.status = Status.FAILED;
             this.processedAt = Instant.now();
+        } else {
+            this.status = Status.PENDING;
         }
     }
 
     public Long getId() {
         return id;
+    }
+
+    public UUID getEventId() {
+        return eventId;
     }
 
     public String getRecipient() {
@@ -100,5 +125,13 @@ public class OutboxEvent {
 
     public Instant getProcessedAt() {
         return processedAt;
+    }
+
+    public Instant getLockedAt() {
+        return lockedAt;
+    }
+
+    public String getLastError() {
+        return lastError;
     }
 }
