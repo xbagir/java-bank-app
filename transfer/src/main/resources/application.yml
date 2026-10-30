@@ -1,0 +1,62 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: transfer
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/transfer_db
+    username: ${DB_USER:transfer_user}
+    password: ${DB_PASSWORD:transfer_pass}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER:http://localhost:8180/realms/bank}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/bank/protocol/openid-connect/certs}
+      client:
+        registration:
+          keycloak:
+            provider: keycloak
+            client-id: transfer-service
+            client-secret: ${TRANSFER_CLIENT_SECRET:transfer-secret}
+            authorization-grant-type: client_credentials
+            scope: accounts.read,accounts.transfer,notifications.write
+        provider:
+          keycloak:
+            token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8180/realms/bank/protocol/openid-connect/token}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      accountsClient:
+        ignore-exceptions:
+          - ru.yandex.practicum.bank.transfer.exception.InsufficientFundsException
+          - ru.yandex.practicum.bank.transfer.exception.InvalidTransferException
+      notificationClient:
+        ignore-exceptions:
+          - ru.yandex.practicum.bank.transfer.exception.InsufficientFundsException
+
+outbox:
+  publish-delay: 5000
+  max-attempts: 5
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
