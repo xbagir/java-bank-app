@@ -1,0 +1,168 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3.2
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: http://localhost:8180
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+    ports:
+      - "8180:8080"
+    volumes:
+      - ./docker/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+
+  discovery-server:
+    build:
+      context: .
+      dockerfile: discovery-server/Dockerfile
+    ports:
+      - "8761:8761"
+
+  config-server:
+    build:
+      context: .
+      dockerfile: config-server/Dockerfile
+    ports:
+      - "8888:8888"
+    depends_on:
+      - discovery-server
+
+  notifications:
+    build:
+      context: .
+      dockerfile: notifications/Dockerfile
+    environment: &service-env
+      DB_HOST: postgres
+      DB_PORT: 5432
+      EUREKA_URL: http://discovery-server:8761/eureka/
+      CONFIG_SERVER_URL: http://config-server:8888
+      KEYCLOAK_ISSUER: http://localhost:8180/realms/bank
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/bank/protocol/openid-connect/certs
+      KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/bank/protocol/openid-connect/token
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+      config-server:
+        condition: service_started
+
+  accounts:
+    build:
+      context: .
+      dockerfile: accounts/Dockerfile
+    environment:
+      <<: *service-env
+      DB_USER: accounts_user
+      DB_PASSWORD: accounts_pass
+      ACCOUNTS_CLIENT_SECRET: accounts-secret
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+      config-server:
+        condition: service_started
+
+  cash:
+    build:
+      context: .
+      dockerfile: cash/Dockerfile
+    environment:
+      <<: *service-env
+      DB_USER: cash_user
+      DB_PASSWORD: cash_pass
+      CASH_CLIENT_SECRET: cash-secret
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+
+  transfer:
+    build:
+      context: .
+      dockerfile: transfer/Dockerfile
+    environment:
+      <<: *service-env
+      DB_USER: transfer_user
+      DB_PASSWORD: transfer_pass
+      TRANSFER_CLIENT_SECRET: transfer-secret
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka/
+      CONFIG_SERVER_URL: http://config-server:8888
+      KEYCLOAK_ISSUER: http://localhost:8180/realms/bank
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/bank/protocol/openid-connect/certs
+    ports:
+      - "8081:8081"
+    depends_on:
+      discovery-server:
+        condition: service_started
+      config-server:
+        condition: service_started
+
+  front:
+    build:
+      context: .
+      dockerfile: front/Dockerfile
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka/
+      CONFIG_SERVER_URL: http://config-server:8888
+      FRONT_CLIENT_SECRET: front-secret
+      KEYCLOAK_AUTHORIZATION_URI: http://localhost:8180/realms/bank/protocol/openid-connect/auth
+      KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/bank/protocol/openid-connect/token
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/bank/protocol/openid-connect/certs
+      KEYCLOAK_USERINFO_URI: http://keycloak:8080/realms/bank/protocol/openid-connect/userinfo
+      KEYCLOAK_END_SESSION_URI: http://localhost:8180/realms/bank/protocol/openid-connect/logout
+      GATEWAY_BASE_URL: http://gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      gateway:
+        condition: service_started
+      keycloak:
+        condition: service_started
+
+volumes:
+  postgres-data:
