@@ -34,12 +34,26 @@
         "+"
       ],
       "defaultClientScopes": [
-        "profile",
-        "email",
         "accounts.read",
         "accounts.write",
         "cash.write",
         "transfer.write"
+      ],
+      "protocolMappers": [
+        {
+          "name": "preferred_username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "username",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "preferred_username",
+            "jsonType.label": "String"
+          }
+        }
       ]
     },
     {
