@@ -4,9 +4,11 @@ server:
 spring:
   cloud:
     gateway:
-      discovery:
-        locator:
-          enabled: false
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: false
       routes:
         - id: accounts
           uri: lb://accounts
