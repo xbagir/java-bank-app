@@ -1,24 +1,18 @@
 package ru.yandex.practicum.mybankfront.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.client.ResourceAccessException;
-import org.springframework.web.client.RestClientResponseException;
-import ru.yandex.practicum.mybankfront.controller.dto.AccountDto;
-import ru.yandex.practicum.mybankfront.controller.dto.AccountResponse;
-import ru.yandex.practicum.mybankfront.controller.dto.ApiError;
 import ru.yandex.practicum.mybankfront.controller.dto.CashAction;
 import ru.yandex.practicum.mybankfront.controller.dto.CashResponse;
 import ru.yandex.practicum.mybankfront.controller.dto.TransferResponse;
 import ru.yandex.practicum.mybankfront.service.BankService;
+import ru.yandex.practicum.mybankfront.service.MainPageModelFactory;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,11 +27,11 @@ import java.util.UUID;
 public class MainController {
 
     private final BankService bankService;
-    private final ObjectMapper objectMapper;
+    private final MainPageModelFactory modelFactory;
 
-    public MainController(BankService bankService, ObjectMapper objectMapper) {
+    public MainController(BankService bankService, MainPageModelFactory modelFactory) {
         this.bankService = bankService;
-        this.objectMapper = objectMapper;
+        this.modelFactory = modelFactory;
     }
 
     /**
@@ -57,11 +51,7 @@ public class MainController {
     public String getAccount(Model model) {
         UUID cashOperationId = UUID.randomUUID();
         UUID transferOperationId = UUID.randomUUID();
-        try {
-            populate(model, null, null, cashOperationId, transferOperationId);
-        } catch (RuntimeException exception) {
-            fillEmpty(model, List.of(errorMessage(exception)), cashOperationId, transferOperationId);
-        }
+        modelFactory.fill(model, null, null, cashOperationId, transferOperationId);
         return "main";
     }
 
@@ -79,10 +69,11 @@ public class MainController {
         UUID transferOperationId = UUID.randomUUID();
         try {
             bankService.updateAccount(name, birthdate);
-            populate(model, null, "Данные профиля сохранены", cashOperationId, transferOperationId);
-        } catch (RuntimeException exception) {
-            populateAfterError(model, List.of(errorMessage(exception)), cashOperationId,
+            modelFactory.fill(model, null, "Данные профиля сохранены", cashOperationId,
                     transferOperationId);
+        } catch (RuntimeException exception) {
+            modelFactory.fill(model, List.of(modelFactory.errorMessage(exception)), null,
+                    cashOperationId, transferOperationId);
         }
         return "main";
     }
@@ -98,13 +89,15 @@ public class MainController {
             @RequestParam("action") CashAction action,
             @RequestParam(value = "operationId", required = false) String operationId
     ) {
-        UUID cashOperationId = operationId(operationId);
+        UUID cashOperationId = modelFactory.operationId(operationId);
+        UUID transferOperationId = UUID.randomUUID();
         try {
             CashResponse response = bankService.cash(value, action, cashOperationId);
-            populate(model, null, response.message(), UUID.randomUUID(), UUID.randomUUID());
+            modelFactory.fill(model, null, response.message(), UUID.randomUUID(),
+                    transferOperationId);
         } catch (RuntimeException exception) {
-            populateAfterError(model, List.of(errorMessage(exception)), cashOperationId,
-                    UUID.randomUUID());
+            modelFactory.fill(model, List.of(modelFactory.errorMessage(exception)), null,
+                    cashOperationId, transferOperationId);
         }
         return "main";
     }
@@ -120,79 +113,16 @@ public class MainController {
             @RequestParam("login") String login,
             @RequestParam(value = "operationId", required = false) String operationId
     ) {
-        UUID transferOperationId = operationId(operationId);
+        UUID cashOperationId = UUID.randomUUID();
+        UUID transferOperationId = modelFactory.operationId(operationId);
         try {
             TransferResponse response = bankService.transfer(login, value, transferOperationId);
-            populate(model, null, response.message(), UUID.randomUUID(), UUID.randomUUID());
+            modelFactory.fill(model, null, response.message(), cashOperationId,
+                    UUID.randomUUID());
         } catch (RuntimeException exception) {
-            populateAfterError(model, List.of(errorMessage(exception)), UUID.randomUUID(),
-                    transferOperationId);
+            modelFactory.fill(model, List.of(modelFactory.errorMessage(exception)), null,
+                    cashOperationId, transferOperationId);
         }
         return "main";
-    }
-
-    private void populate(Model model, List<String> errors, String info,
-                          UUID cashOperationId, UUID transferOperationId) {
-        AccountResponse account = bankService.getAccount();
-        List<AccountDto> accounts = bankService.getOtherAccounts();
-        model.addAttribute("name", account.name());
-        model.addAttribute("birthdate", account.birthdate().format(DateTimeFormatter.ISO_DATE));
-        model.addAttribute("sum", account.balance());
-        model.addAttribute("accounts", accounts);
-        model.addAttribute("errors", errors);
-        model.addAttribute("info", info);
-        model.addAttribute("cashOperationId", cashOperationId.toString());
-        model.addAttribute("transferOperationId", transferOperationId.toString());
-    }
-
-    private void populateAfterError(Model model, List<String> errors, UUID cashOperationId,
-                                    UUID transferOperationId) {
-        try {
-            populate(model, errors, null, cashOperationId, transferOperationId);
-        } catch (RuntimeException exception) {
-            fillEmpty(model, errors, cashOperationId, transferOperationId);
-        }
-    }
-
-    private void fillEmpty(Model model, List<String> errors, UUID cashOperationId,
-                           UUID transferOperationId) {
-        model.addAttribute("name", "");
-        model.addAttribute("birthdate", "");
-        model.addAttribute("sum", BigDecimal.ZERO);
-        model.addAttribute("accounts", List.of());
-        model.addAttribute("errors", errors);
-        model.addAttribute("info", null);
-        model.addAttribute("cashOperationId", cashOperationId.toString());
-        model.addAttribute("transferOperationId", transferOperationId.toString());
-    }
-
-    private UUID operationId(String value) {
-        if (value == null || value.isBlank()) {
-            return UUID.randomUUID();
-        }
-        try {
-            return UUID.fromString(value);
-        } catch (IllegalArgumentException exception) {
-            return UUID.randomUUID();
-        }
-    }
-
-    private String errorMessage(RuntimeException exception) {
-        if (exception instanceof RestClientResponseException responseException) {
-            try {
-                ApiError apiError = objectMapper.readValue(
-                        responseException.getResponseBodyAsString(), ApiError.class);
-                if (apiError.message() != null && !apiError.message().isBlank()) {
-                    return apiError.message();
-                }
-            } catch (Exception ignored) {
-                // fall through to a generic message
-            }
-            return "Не удалось выполнить операцию";
-        }
-        if (exception instanceof ResourceAccessException) {
-            return "Сервис временно недоступен";
-        }
-        return "Не удалось выполнить операцию";
     }
 }

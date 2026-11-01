@@ -4,12 +4,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.yandex.practicum.mybankfront.controller.dto.AccountDto;
 import ru.yandex.practicum.mybankfront.controller.dto.AccountResponse;
 import ru.yandex.practicum.mybankfront.controller.dto.TransferResponse;
 import ru.yandex.practicum.mybankfront.service.BankService;
+import ru.yandex.practicum.mybankfront.service.MainPageModelFactory;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -25,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(MainController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Import(MainPageModelFactory.class)
 class MainControllerTest {
 
     @Autowired

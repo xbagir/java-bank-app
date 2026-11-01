@@ -20,8 +20,7 @@
                     <h2>
                         <span class="badge text-bg-info text-white">Банк</span>
                     </h2>
-                    <form method="post" action="/logout">
-                        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <form method="post" th:action="@{/logout}">
                         <button type="submit" class="btn btn-outline-secondary">Выйти</button>
                     </form>
                 </div>
@@ -34,7 +33,7 @@
                         Обо мне
                     </div>
                     <div class="card-body gap-3">
-                        <form method="post" action="/account">
+                        <form method="post" th:action="@{/account}">
                             <div class="form-group">
                                 <h6>
                                     <label for="name">Фамилия Имя</label>
@@ -68,14 +67,14 @@
                         Операции с наличными
                     </div>
                     <div class="card-body gap-3">
-                        <form method="post" action="/cash">
+                        <form method="post" th:action="@{/cash}">
                             <input type="hidden" name="operationId" th:value="${cashOperationId}"/>
                             <div class="form-group">
                                 <h6>
                                     <label for="cash_value">Сумма, руб.</label>
                                 </h6>
                                 <p>
-                                    <input type="number" class="form-control" id="cash_value" name="value" placeholder="100" required>
+                                    <input type="number" class="form-control" id="cash_value" name="value" placeholder="100" step="0.01" min="0.01" required>
                                 </p>
                             </div>
                             <button type="submit" class="btn btn-secondary" name="action" value="PUT">Положить</button>
@@ -92,7 +91,7 @@
                         Переводы
                     </div>
                     <div class="card-body gap-3">
-                        <form method="post" action="/transfer">
+                        <form method="post" th:action="@{/transfer}">
                             <input type="hidden" name="operationId" th:value="${transferOperationId}"/>
                             <div class="form-group">
                                 <h6>
@@ -109,7 +108,7 @@
                                     <label for="transfer_value">Сумма, руб.</label>
                                 </h6>
                                 <p>
-                                    <input type="text" class="form-control" name="value" id="transfer_value" placeholder="100" required>
+                                    <input type="number" class="form-control" name="value" id="transfer_value" placeholder="100" step="0.01" min="0.01" required>
                                 </p>
                             </div>
                             <button type="submit" class="btn btn-secondary">Перевести</button>

@@ -76,6 +76,16 @@ flowchart LR
 - Docker и Docker Compose
 - Maven не обязателен: используется Maven Wrapper (`./mvnw`)
 
+Сборка и тесты требуют JDK 21 (в POM задан `maven.compiler.release=21`).
+Если JDK 21 не установлен, полный прогон можно выполнить в контейнере:
+
+```bash
+docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp \
+  -v "$PWD":/workspace -v "$PWD/.m2-bank":/tmp/m2 -w /workspace \
+  maven:3.9-eclipse-temurin-21 \
+  mvn -B -Dmaven.repo.local=/tmp/m2/repository clean verify
+```
+
 ## Быстрый запуск в Docker
 
 ```bash
