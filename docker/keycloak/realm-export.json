@@ -54,7 +54,10 @@
             "jsonType.label": "String"
           }
         }
-      ]
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:8080/*"
+      }
     },
     {
       "clientId": "accounts-service",
