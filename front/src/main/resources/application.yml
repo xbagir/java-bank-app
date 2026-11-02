@@ -1,0 +1,44 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: front
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  thymeleaf:
+    cache: false
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak:
+            provider: keycloak
+            client-id: front
+            client-secret: ${FRONT_CLIENT_SECRET:front-secret}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid,accounts.read,accounts.write,cash.write,transfer.write
+        provider:
+          keycloak:
+            authorization-uri: ${KEYCLOAK_AUTHORIZATION_URI:http://localhost:8180/realms/bank/protocol/openid-connect/auth}
+            token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8180/realms/bank/protocol/openid-connect/token}
+            jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/bank/protocol/openid-connect/certs}
+            user-info-uri: ${KEYCLOAK_USERINFO_URI:http://localhost:8180/realms/bank/protocol/openid-connect/userinfo}
+            end-session-endpoint: ${KEYCLOAK_END_SESSION_URI:http://localhost:8180/realms/bank/protocol/openid-connect/logout}
+            user-name-attribute: preferred_username
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+
+bank:
+  gateway:
+    base-url: ${GATEWAY_BASE_URL:http://gateway}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

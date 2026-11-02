@@ -1,0 +1,38 @@
+server:
+  port: 8084
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/transfer_db
+    username: ${DB_USER:transfer_user}
+    password: ${DB_PASSWORD:transfer_pass}
+    hikari:
+      maximum-pool-size: 10
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak:
+            provider: keycloak
+            client-id: transfer-service
+            client-secret: ${TRANSFER_CLIENT_SECRET:transfer-secret}
+            authorization-grant-type: client_credentials
+            scope: accounts.read,accounts.transfer,notifications.write
+        provider:
+          keycloak:
+            token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8180/realms/bank/protocol/openid-connect/token}
+
+outbox:
+  publish-delay: 5000
+  max-attempts: 5
