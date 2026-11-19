@@ -1,0 +1,52 @@
+spring:
+  config:
+    import: ""
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+  datasource:
+    url: jdbc:h2:mem:accounts;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/bank
+          jwk-set-uri: http://localhost:8180/realms/bank/protocol/openid-connect/certs
+      client:
+        registration:
+          keycloak:
+            provider: keycloak
+            client-id: accounts-service
+            client-secret: accounts-secret
+            authorization-grant-type: client_credentials
+            scope: notifications.write
+        provider:
+          keycloak:
+            token-uri: http://localhost:8180/realms/bank/protocol/openid-connect/token
+
+bank:
+  security:
+    enabled: false
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+outbox:
+  publish-delay: 60000
+  max-attempts: 2
+
+reconciliation:
+  delay: 60000

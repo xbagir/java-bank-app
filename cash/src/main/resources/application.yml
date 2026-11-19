@@ -1,0 +1,62 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: cash
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/cash_db
+    username: ${DB_USER:cash_user}
+    password: ${DB_PASSWORD:cash_pass}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER:http://localhost:8180/realms/bank}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/bank/protocol/openid-connect/certs}
+      client:
+        registration:
+          keycloak:
+            provider: keycloak
+            client-id: cash-service
+            client-secret: ${CASH_CLIENT_SECRET:cash-secret}
+            authorization-grant-type: client_credentials
+            scope: accounts.read,accounts.write,notifications.write
+        provider:
+          keycloak:
+            token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8180/realms/bank/protocol/openid-connect/token}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      accountsClient:
+        ignore-exceptions:
+          - ru.yandex.practicum.bank.cash.exception.InsufficientFundsException
+          - ru.yandex.practicum.bank.cash.exception.InvalidCashOperationException
+      notificationClient:
+        ignore-exceptions:
+          - ru.yandex.practicum.bank.cash.exception.InsufficientFundsException
+
+outbox:
+  publish-delay: 5000
+  max-attempts: 5
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
