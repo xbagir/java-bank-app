@@ -1,0 +1,15 @@
+replicas: 1
+nodeId: 0
+clusterId: MkU3OEVBNTcwNTJENDM2Qk
+image:
+  repository: apache/kafka
+  tag: "3.9.0"
+persistence:
+  size: 5Gi
+  storageClass: ""
+podSecurityContext:
+  fsGroup: 1000
+topic:
+  name: bank.notifications
+  partitions: 3
+  replicationFactor: 1

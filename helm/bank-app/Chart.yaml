@@ -1,0 +1,25 @@
+apiVersion: v2
+name: bank-app
+description: Umbrella chart for the Bank microservices platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+dependencies:
+  - name: discovery-server
+    version: 0.1.0
+  - name: config-server
+    version: 0.1.0
+  - name: gateway
+    version: 0.1.0
+  - name: front
+    version: 0.1.0
+  - name: accounts
+    version: 0.1.0
+  - name: cash
+    version: 0.1.0
+  - name: transfer
+    version: 0.1.0
+  - name: notifications
+    version: 0.1.0
+  - name: kafka
+    version: 0.1.0
