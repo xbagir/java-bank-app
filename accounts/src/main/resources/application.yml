@@ -23,17 +23,6 @@ spring:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER:http://localhost:8180/realms/bank}
           jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/bank/protocol/openid-connect/certs}
-      client:
-        registration:
-          keycloak:
-            provider: keycloak
-            client-id: accounts-service
-            client-secret: ${ACCOUNTS_CLIENT_SECRET:accounts-secret}
-            authorization-grant-type: client_credentials
-            scope: notifications.write
-        provider:
-          keycloak:
-            token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8180/realms/bank/protocol/openid-connect/token}
 
 eureka:
   client:
@@ -49,3 +38,8 @@ management:
     web:
       exposure:
         include: health,info
+
+kafka:
+  bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  topic:
+    notifications: ${KAFKA_TOPIC_NOTIFICATIONS:bank.notifications}

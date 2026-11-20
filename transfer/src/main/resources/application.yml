@@ -47,9 +47,6 @@ resilience4j:
         ignore-exceptions:
           - ru.yandex.practicum.bank.transfer.exception.InsufficientFundsException
           - ru.yandex.practicum.bank.transfer.exception.InvalidTransferException
-      notificationClient:
-        ignore-exceptions:
-          - ru.yandex.practicum.bank.transfer.exception.InsufficientFundsException
 
 outbox:
   publish-delay: 5000
@@ -60,3 +57,8 @@ management:
     web:
       exposure:
         include: health,info
+
+kafka:
+  bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  topic:
+    notifications: ${KAFKA_TOPIC_NOTIFICATIONS:bank.notifications}

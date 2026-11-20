@@ -28,10 +28,14 @@ spring:
             client-id: cash-service
             client-secret: ${CASH_CLIENT_SECRET:cash-secret}
             authorization-grant-type: client_credentials
-            scope: accounts.read,accounts.write,notifications.write
+            scope: accounts.read,accounts.write
         provider:
           keycloak:
             token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8180/realms/bank/protocol/openid-connect/token}
+kafka:
+  bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  topic:
+    notifications: ${KAFKA_TOPIC_NOTIFICATIONS:bank.notifications}
 
 outbox:
   publish-delay: 5000

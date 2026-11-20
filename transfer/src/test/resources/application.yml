@@ -46,3 +46,7 @@ outbox:
 
 reconciliation:
   delay: 60000
+
+kafka:
+  topic:
+    notifications: bank.notifications
