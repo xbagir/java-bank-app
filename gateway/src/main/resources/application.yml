@@ -50,16 +50,6 @@ spring:
               args:
                 name: transferCircuitBreaker
                 fallbackUri: forward:/fallback/transfer
-        - id: notifications
-          uri: lb://notifications
-          predicates:
-            - Path=/api/notifications/**
-          filters:
-            - StripPrefix=1
-            - name: CircuitBreaker
-              args:
-                name: notificationsCircuitBreaker
-                fallbackUri: forward:/fallback/notifications
 
 eureka:
   client:

@@ -1,0 +1,30 @@
+accounts:
+  config:
+    DB_HOST: host.docker.internal
+    KEYCLOAK_JWK_SET_URI: http://host.docker.internal:8180/realms/bank/protocol/openid-connect/certs
+
+cash:
+  config:
+    DB_HOST: host.docker.internal
+    KEYCLOAK_JWK_SET_URI: http://host.docker.internal:8180/realms/bank/protocol/openid-connect/certs
+    KEYCLOAK_TOKEN_URI: http://host.docker.internal:8180/realms/bank/protocol/openid-connect/token
+
+transfer:
+  config:
+    DB_HOST: host.docker.internal
+    KEYCLOAK_JWK_SET_URI: http://host.docker.internal:8180/realms/bank/protocol/openid-connect/certs
+    KEYCLOAK_TOKEN_URI: http://host.docker.internal:8180/realms/bank/protocol/openid-connect/token
+
+notifications:
+  config:
+    DB_HOST: host.docker.internal
+
+gateway:
+  config:
+    KEYCLOAK_JWK_SET_URI: http://host.docker.internal:8180/realms/bank/protocol/openid-connect/certs
+
+front:
+  config:
+    KEYCLOAK_TOKEN_URI: http://host.docker.internal:8180/realms/bank/protocol/openid-connect/token
+    KEYCLOAK_JWK_SET_URI: http://host.docker.internal:8180/realms/bank/protocol/openid-connect/certs
+    KEYCLOAK_USERINFO_URI: http://host.docker.internal:8180/realms/bank/protocol/openid-connect/userinfo

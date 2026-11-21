@@ -30,6 +30,41 @@ services:
     volumes:
       - ./docker/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
 
+  kafka:
+    image: apache/kafka:3.9.0
+    hostname: kafka
+    ports:
+      - "9092:29092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,PLAINTEXT_HOST://:29092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+
+  kafka-init:
+    image: apache/kafka:3.9.0
+    depends_on:
+      - kafka
+    entrypoint: ["/bin/bash", "-c"]
+    command: >
+      until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1;
+      do sleep 2; done;
+      /opt/kafka/bin/kafka-topics.sh --create --if-not-exists --bootstrap-server kafka:9092
+      --topic bank.notifications --partitions 3 --replication-factor 1
+
   discovery-server:
     build:
       context: .
@@ -58,8 +93,9 @@ services:
       KEYCLOAK_ISSUER: http://localhost:8180/realms/bank
       KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/bank/protocol/openid-connect/certs
       KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/bank/protocol/openid-connect/token
-    ports:
-      - "8085:8085"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC_NOTIFICATIONS: bank.notifications
+      KAFKA_CONSUMER_GROUP_ID: bank-notifications
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,6 +105,8 @@ services:
         condition: service_started
       config-server:
         condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
 
   accounts:
     build:
@@ -78,7 +116,6 @@ services:
       <<: *service-env
       DB_USER: accounts_user
       DB_PASSWORD: accounts_pass
-      ACCOUNTS_CLIENT_SECRET: accounts-secret
     ports:
       - "8082:8082"
     depends_on:
@@ -90,6 +127,8 @@ services:
         condition: service_started
       config-server:
         condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
 
   cash:
     build:
@@ -107,6 +146,8 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
 
   transfer:
     build:
@@ -124,6 +165,8 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
 
   gateway:
     build:
@@ -166,3 +209,4 @@ services:
 
 volumes:
   postgres-data:
+  kafka-data:

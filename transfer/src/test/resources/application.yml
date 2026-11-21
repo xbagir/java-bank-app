@@ -29,7 +29,7 @@ spring:
             client-id: transfer-service
             client-secret: transfer-secret
             authorization-grant-type: client_credentials
-            scope: accounts.read,accounts.transfer,notifications.write
+            scope: accounts.read,accounts.transfer
         provider:
           keycloak:
             token-uri: http://localhost:8180/realms/bank/protocol/openid-connect/token
