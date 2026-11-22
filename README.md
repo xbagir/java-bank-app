@@ -1,83 +1,44 @@
 # Bank App — микросервисное приложение «Банк»
 
-Учебное микросервисное приложение на Java 21 / Spring Boot 3.5 / Spring Cloud 2025.
-Пользователь входит во фронт через Keycloak (Authorization Code Flow), редактирует профиль,
-пополняет и снимает деньги, переводит средства другому клиенту.
+Учебное приложение на Java 21 / Spring Boot 3.5 / Spring Cloud 2025.
+Пользователь входит через Keycloak, редактирует профиль, пополняет и снимает деньги,
+переводит средства другому клиенту.
 
-## Архитектура
+## Как устроено
 
-```mermaid
-flowchart LR
-    U[Браузер] -->|Authorization Code| KC[Keycloak]
-    U -->|HTML| F[Front UI :8080]
-    F -->|JWT через Gateway| G[Gateway :8081]
-    G -->|lb://accounts| A[Accounts :8082]
-    G -->|lb://cash| C[Cash :8083]
-    G -->|lb://transfer| T[Transfer :8084]
-    G -->|lb://notifications| N[Notifications :8085]
-    A -->|Client Credentials REST| N
-    C -->|Client Credentials REST| A
-    C -->|Client Credentials REST| N
-    T -->|Client Credentials REST| A
-    T -->|Client Credentials REST| N
-    D[Eureka :8761] -. discovery .- F & G & A & C & T & N
-    CS[Config Server :8888] -. config .- F & G & A & C & T & N
-    A & C & T & N --> PG[(PostgreSQL)]
-```
+- `front` — HTML-интерфейс, OAuth2 Authorization Code Flow.
+- `gateway` — единая точка входа, проверка JWT и маршрутизация в сервисы.
+- `accounts` — профиль, баланс и внутренние операции со счётом.
+- `cash` — пополнение и снятие наличных.
+- `transfer` — переводы между счетами.
+- `notifications` — Kafka-консьюмер уведомлений, без HTTP API.
+- `discovery-server` и `config-server` — Eureka и внешняя конфигурация.
+
+Cash и Transfer вызывают Accounts по REST с Client Credentials. Уведомления
+Accounts, Cash и Transfer передают через Transactional Outbox в Kafka topic
+`bank.notifications`, откуда их читает Notifications.
 
 ### Модули
 
 | Модуль | Назначение | Порт |
 |---|---|---:|
-| `discovery-server` | Eureka Server, Service Discovery | 8761 |
+| `discovery-server` | Eureka Server | 8761 |
 | `config-server` | Spring Cloud Config Server, native-профиль | 8888 |
-| `gateway` | Spring Cloud Gateway, проверка JWT, проброс токена, Circuit Breaker | 8081 |
-| `front` | Spring MVC + Thymeleaf, OAuth2 Login (Authorization Code) | 8080 |
-| `accounts` | аккаунты, баланс, профиль; Database per Service | 8082 |
-| `cash` | пополнение и снятие наличных | 8083 |
-| `transfer` | переводы между счетами | 8084 |
-| `notifications` | уведомления (лог + БД) | 8085 |
-
-### Реализованные паттерны
-
-- **API Gateway** — `gateway`, маршрутизация по `lb://`.
-- **Service Discovery** — Eureka, все сервисы регистрируются в нём.
-- **Externalized / Distributed Config** — Spring Cloud Config Server; общие настройки в `config-repo/application.yml`.
-- **Database per Service** — отдельные БД `accounts_db`, `cash_db`, `transfer_db`, `notifications_db` в одном PostgreSQL.
-- **Access Token / OAuth 2.0** — Authorization Code Flow для пользователя, Client Credentials для межсервисных вызовов.
-- **Circuit Breaker** — Resilience4j в клиентах и в Gateway.
-- **Transactional Outbox** — события уведомлений сохраняются вместе с бизнес-операцией и публикуются планировщиком.
-- **Contract Testing** — Spring Cloud Contract (producer-контракты Accounts и Notifications, сгенерированные тесты).
-- **UI Composition** — `front` собирает данные Accounts в одну HTML-страницу.
-- **REST + LoadBalancer** — межсервисные вызовы через `RestClient` и Eureka.
-- **Идемпотентность** — `Idempotency-Key`/`requestId`, уникальные ключи операций.
-- **Saga + Reconciliation** — состояния операций `PENDING/SUCCESS/FAILED` и повторная обработка.
-
-### Надёжность денежных операций
-
-- Все суммы валидируются по точности (`NUMERIC(19,2)`, не более 2 знаков после запятой).
-- В PostgreSQL действуют ограничения `balance >= 0`, `amount > 0`, корректный масштаб сумм.
-- Списание/пополнение Accounts выполняются под `SELECT ... FOR UPDATE`.
-- Перевод блокирует оба счёта одной выборкой в детерминированном порядке и выполняется
-  в изоляции `SERIALIZABLE` с повтором при serialization failure/deadlock.
-- Каждая денежная операция имеет `request_id`; повторный запрос возвращает сохранённый
-  результат и не меняет баланс повторно.
-- Cash и Transfer создают локальную операцию в состоянии `PENDING`, вызывают Accounts
-  вне локальной транзакции, затем атомарно фиксируют `SUCCESS` и outbox-события.
-- Планировщик повторяет `PENDING`-операции с тем же `request_id`.
-- Outbox захватывает события через `FOR UPDATE SKIP LOCKED`, отправляет их вне транзакции
-  и поддерживает восстановление зависших событий.
-- Notifications дедуплицирует события по `event_id`.
-- Фронт передаёт `Idempotency-Key` и блокирует повторную отправку формы.
+| `gateway` | Spring Cloud Gateway, JWT, Circuit Breaker | 8081 |
+| `front` | Spring MVC + Thymeleaf, OAuth2 Login | 8080 |
+| `accounts` | аккаунты, баланс, профиль | 8082 |
+| `cash` | пополнение и снятие | 8083 |
+| `transfer` | переводы | 8084 |
+| `notifications` | Kafka-консьюмер, лог и БД | — |
 
 ## Требования
 
-- JDK 21
-- Docker и Docker Compose
-- Maven не обязателен: используется Maven Wrapper (`./mvnw`)
+- JDK 21.
+- Docker и Docker Compose.
+- Maven не обязателен: используется `./mvnw`.
+- Helm 3 и kubectl — только для запуска в Kubernetes.
 
-Сборка и тесты требуют JDK 21 (в POM задан `maven.compiler.release=21`).
-Если JDK 21 не установлен, полный прогон можно выполнить в контейнере:
+Если локально установлен JDK старше 21, сборку и тесты можно выполнить в контейнере:
 
 ```bash
 docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp \
@@ -86,13 +47,18 @@ docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp \
   mvn -B -Dmaven.repo.local=/tmp/m2/repository clean verify
 ```
 
-## Быстрый запуск в Docker
+## Быстрый запуск
+
+Самый простой способ — Docker Compose:
 
 ```bash
 docker compose up -d --build
 ```
 
-После старта:
+Первый запуск занимает несколько минут: собираются образы и инициализируются
+PostgreSQL, Keycloak и Kafka.
+
+После запуска откройте:
 
 - Front UI: http://localhost:8080
 - Keycloak: http://localhost:8180 (admin / admin)
@@ -108,13 +74,13 @@ docker compose up -d --build
 | `petrov` | Петров Пётр |
 | `sidorov` | Сидоров Сидор |
 
-Остановить:
+Остановить приложение:
 
 ```bash
 docker compose down
 ```
 
-Удалить данные:
+Остановить и удалить данные PostgreSQL и Kafka:
 
 ```bash
 docker compose down -v
@@ -122,114 +88,76 @@ docker compose down -v
 
 ## Локальный запуск
 
-1. Поднять PostgreSQL и Keycloak:
+Если сервисы нужно запустить не в контейнерах:
 
 ```bash
-docker compose up -d postgres keycloak
-```
-
-2. Собрать проект:
-
-```bash
+docker compose up -d postgres keycloak kafka kafka-init
 ./mvnw clean package
-```
-
-3. Запустить в отдельных терминалах:
-
-```bash
-java -jar discovery-server/target/discovery-server-1.0.0-SNAPSHOT.jar
-java -jar config-server/target/config-server-1.0.0-SNAPSHOT.jar
-java -jar notifications/target/notifications-1.0.0-SNAPSHOT.jar
-java -jar accounts/target/accounts-1.0.0-SNAPSHOT.jar
-java -jar cash/target/cash-1.0.0-SNAPSHOT.jar
-java -jar transfer/target/transfer-1.0.0-SNAPSHOT.jar
-java -jar gateway/target/gateway-1.0.0-SNAPSHOT.jar
-java -jar front/target/front-1.0.0-SNAPSHOT.jar
-```
-
-Сервисы читают общие настройки из Config Server. При локальном запуске используются
-значения по умолчанию из `application.yml` и переменных окружения.
-
-Для запуска всех JAR одной командой после сборки:
-
-```bash
 cp .env.example .env
 ./scripts/run-local.sh
 ```
 
-Пример переменных:
+Скрипт запускает все JAR и останавливает их по `Ctrl+C`. Для локального Kafka
+используется `localhost:9092`, для PostgreSQL — `localhost:5432`.
 
-```bash
-export DB_HOST=localhost
-export KEYCLOAK_ISSUER=http://localhost:8180/realms/bank
-export KEYCLOAK_JWK_SET_URI=http://localhost:8180/realms/bank/protocol/openid-connect/certs
-export KEYCLOAK_TOKEN_URI=http://localhost:8180/realms/bank/protocol/openid-connect/token
-```
+## Kafka и уведомления
 
-## OAuth 2.0 и права доступа
+- Topic: `bank.notifications`, consumer group: `bank-notifications`.
+- В Compose topic создаёт контейнер `kafka-init`, в Helm — Job-хук после установки.
+- Локально и в Helm используется один брокер Kafka в режиме KRaft.
+- В Docker Compose Kafka доступна как `kafka:9092` внутри сети и `localhost:9092` с хоста.
+- Accounts, Cash и Transfer сохраняют уведомление в outbox вместе с бизнес-операцией,
+  затем `OutboxPublisher` публикует JSON в Kafka.
+- Сообщение содержит `eventId`, `recipient`, `type`, `message`; ключ сообщения — `eventId`.
+- Notifications дедуплицирует события по `eventId`, коммитит оффсет после записи
+  и при ошибке повторяет обработку.
+- Отдельного REST API и маршрута Gateway для Notifications нет.
+
+## OAuth 2.0
 
 Realm: `bank`.
 
 | Клиент | Flow | Scopes |
 |---|---|---|
 | `front` | Authorization Code | `accounts.read`, `accounts.write`, `cash.write`, `transfer.write` |
-| `accounts-service` | Client Credentials | `service`, `notifications.write` |
-| `cash-service` | Client Credentials | `service`, `accounts.read`, `accounts.write`, `notifications.write` |
-| `transfer-service` | Client Credentials | `service`, `accounts.read`, `accounts.transfer`, `notifications.write` |
+| `cash-service` | Client Credentials | `service`, `accounts.read`, `accounts.write` |
+| `transfer-service` | Client Credentials | `service`, `accounts.read`, `accounts.transfer` |
 
-- Пользовательский JWT содержит `preferred_username` и scopes, необходимые фронту.
-- Внутренние `/internal/**` методы Accounts требуют `SCOPE_service` и соответствующий scope.
-- Пользователь не имеет `notifications.write` и не может обращаться к внутренним методам.
-- Gateway проверяет JWT и пробрасывает `Authorization: Bearer ...` в сервисы.
-- Сервисы получают service token через Client Credentials Flow.
+- JWT пользователя содержит `preferred_username` и scopes для Front.
+- Внутренние `/internal/**` методы Accounts требуют `SCOPE_service` и нужный scope.
+- Gateway проверяет JWT и пробрасывает `Authorization: Bearer ...`.
+- Accounts не использует Client Credentials для Notifications.
 
 ## REST API
 
-### Accounts
+| Сервис | Метод | Путь | Доступ |
+|---|---|---|---|
+| Accounts | GET | `/accounts/me` | пользователь, `accounts.read` |
+| Accounts | PUT | `/accounts/me` | пользователь, `accounts.write` |
+| Accounts | GET | `/accounts/others` | пользователь, `accounts.read` |
+| Accounts | GET | `/internal/accounts/{login}` | сервис, `service` |
+| Accounts | POST | `/internal/accounts/{login}/deposit` | сервис, `accounts.write` |
+| Accounts | POST | `/internal/accounts/{login}/withdraw` | сервис, `accounts.write` |
+| Accounts | POST | `/internal/accounts/transfer` | сервис, `accounts.transfer` |
+| Cash | POST | `/cash/deposit` | пользователь, `cash.write` |
+| Cash | POST | `/cash/withdraw` | пользователь, `cash.write` |
+| Transfer | POST | `/transfer` | пользователь, `transfer.write` |
 
-| Метод | Путь | Доступ |
-|---|---|---|
-| GET | `/accounts/me` | пользователь, `accounts.read` |
-| PUT | `/accounts/me` | пользователь, `accounts.write` |
-| GET | `/accounts/others` | пользователь, `accounts.read` |
-| GET | `/internal/accounts/{login}` | сервис, `service` + accounts scope |
-| POST | `/internal/accounts/{login}/deposit` | сервис, `service` + `accounts.write` |
-| POST | `/internal/accounts/{login}/withdraw` | сервис, `service` + `accounts.write` |
-| POST | `/internal/accounts/transfer` | сервис, `service` + `accounts.transfer` |
+Для Cash и Transfer обязателен заголовок `Idempotency-Key: <UUID>`.
+Front обращается к сервисам через Gateway по путям `/api/accounts/**`,
+`/api/cash/**` и `/api/transfer/**`.
 
-### Cash
+## Денежные операции
 
-Для операций обязателен заголовок `Idempotency-Key: <UUID>`.
-
-| Метод | Путь | Доступ |
-|---|---|---|
-| POST | `/cash/deposit` | пользователь, `cash.write` |
-| POST | `/cash/withdraw` | пользователь, `cash.write` |
-
-### Transfer
-
-Для операции обязателен заголовок `Idempotency-Key: <UUID>`.
-
-| Метод | Путь | Доступ |
-|---|---|---|
-| POST | `/transfer` | пользователь, `transfer.write` |
-
-### Notifications
-
-| Метод | Путь | Доступ |
-|---|---|---|
-| POST | `/notifications` | сервис, `notifications.write` |
-
-Через Gateway фронт обращается по путям `/api/accounts/**`, `/api/cash/**`,
-`/api/transfer/**`, `/api/notifications/**`.
-
-## Валидация
-
-- имя и фамилия не пустые;
-- дата рождения не в будущем, возраст не меньше 18 лет;
-- сумма операции больше нуля;
-- при снятии/переводе проверяется достаточность средств;
-- перевод самому себе запрещён.
+- Суммы проверяются на положительное значение и не более двух знаков после запятой.
+- Баланс не может стать отрицательным.
+- Accounts блокирует счёт через `SELECT ... FOR UPDATE`; перевод блокирует оба счёта
+  в детерминированном порядке.
+- Повторный запрос с тем же `request_id` возвращает сохранённый результат.
+- Cash и Transfer фиксируют операцию как `PENDING`, затем `SUCCESS` или `FAILED`;
+  зависшие операции повторяются планировщиком.
+- Outbox использует `FOR UPDATE SKIP LOCKED` и переводит событие в `SENT`
+  только после подтверждения Kafka.
 
 ## Тесты
 
@@ -237,22 +165,19 @@ Realm: `bank`.
 ./mvnw clean verify
 ```
 
-Покрытие:
+Проверяются:
 
-- unit-тесты сервисов (`AccountServiceTest`, `CashServiceTest`, `TransferServiceTest`, `NotificationServiceTest`);
-- MVC-тесты контроллеров с проверкой security;
-- интеграционные тесты через `@SpringBootTest` + H2 (PostgreSQL-режим);
-- тесты на Testcontainers PostgreSQL: конкурентные переводы, идемпотентность операции,
-  отсутствие отрицательного баланса и потери денег;
-- контрактные тесты Spring Cloud Contract:
-  - Accounts: `src/test/resources/contracts/accounts/*.groovy`;
-  - Notifications: `src/test/resources/contracts/notifications/*.groovy`;
-- тесты Gateway fallback;
-- тесты Front MVC/Thymeleaf.
+- unit- и MVC-тесты сервисов и контроллеров;
+- интеграционные тесты на H2 в режиме PostgreSQL;
+- конкурентные операции Accounts на Testcontainers PostgreSQL;
+- Kafka-тесты через `@EmbeddedKafka`: публикация outbox, ретраи, дедупликация
+  и продолжение обработки после перезапуска consumer’а;
+- контрактные тесты Accounts через Spring Cloud Contract;
+- Gateway fallback и Front MVC/Thymeleaf.
+
+Для тестов Accounts с Testcontainers нужен Docker. Без Docker они пропускаются.
 
 ## База данных
-
-PostgreSQL, один инстанс, отдельные БД и пользователи:
 
 | Сервис | БД | Пользователь |
 |---|---|---|
@@ -261,46 +186,86 @@ PostgreSQL, один инстанс, отдельные БД и пользова
 | transfer | `transfer_db` | `transfer_user` |
 | notifications | `notifications_db` | `notifications_user` |
 
-Миграции — Flyway, лежат в `src/main/resources/db/migration`.
-Начальные аккаунты создаются миграцией `V2__seed_accounts.sql`.
+Миграции выполняет Flyway. Начальные аккаунты создаются миграцией
+`V2__seed_accounts.sql`.
 
 ## Конфигурация
 
-`config-server/src/main/resources/config-repo/`:
+Общие настройки сервисов находятся в `config-server/src/main/resources/config-repo/`.
+Переменные окружения и локальные `application.yml` задают значения по умолчанию.
+Для production секреты нужно передавать через переменные окружения или Kubernetes Secret.
 
-- `application.yml` — общие настройки Eureka, OAuth2 Resource Server, Resilience4j, логирования;
-- `<service>.yml` — настройки конкретного сервиса: порт, БД, OAuth2 Client.
+## Kubernetes (Helm)
 
-Секреты в dev-окружении заданы значениями по умолчанию. Для production используйте
-переменные окружения и не храните секреты в репозитории.
+Чарт `helm/bank-app/` содержит сабчарты всех сервисов и Kafka:
 
-## Docker
-
-- у каждого модуля есть multi-stage `Dockerfile` (JDK 21 → JRE 21);
-- `docker-compose.yml` поднимает PostgreSQL, Keycloak, Eureka, Config Server и все сервисы;
-- каждый сервис опубликован на своём порту (Single Service per Host);
-- данные PostgreSQL хранятся в named volume `postgres-data`.
-
-## Полезные команды
-
-```bash
-# сборка без тестов
-./mvnw clean package -DskipTests
-
-# только тесты
-./mvnw test
-
-# только контрактные тесты Accounts
-./mvnw -pl accounts test
-
-# логи контейнера
-docker compose logs -f accounts
-
-# перезапуск одного сервиса
-docker compose up -d --build accounts
+```text
+helm/bank-app/
+├── Chart.yaml
+├── values.yaml
+├── values-dev.yaml
+├── values-dev-docker.yaml
+├── values-test.yaml
+├── values-prod.yaml
+└── charts/
+    ├── discovery-server/  config-server/  gateway/  front/
+    ├── accounts/  cash/  transfer/  notifications/
+    └── kafka/
 ```
 
-## Ограничения учебного проекта
+Kafka разворачивается как StatefulSet с PVC, одним брокером KRaft и Job-хуком,
+который создаёт topic `bank.notifications`. PostgreSQL и Keycloak в чарт не входят:
+для них используйте Docker Compose или отдельные сервисы Kubernetes. Допускается
+только один брокер: `kafka.replicas` и `kafka.topic.replicationFactor` должны быть
+равны `1`.
 
-По условию задания не реализуются: репликация и Load Balancer, Kafka/JMS,
-ELK, распределённая трассировка, Kubernetes, CI/CD, полноценный мониторинг.
+| Окружение | Namespace | Values | Kafka PVC | Партиции |
+|---|---|---|---:|---:|
+| dev | `bank-dev` | `values-dev.yaml` | 2Gi | 3 |
+| test | `bank-test` | `values-test.yaml` | 2Gi | 3 |
+| prod | `bank-prod` | `values-prod.yaml` | 10Gi | 6 |
+
+Установка:
+
+```bash
+kubectl create namespace bank-dev
+helm upgrade --install bank ./helm/bank-app \
+  -n bank-dev \
+  -f helm/bank-app/values-dev.yaml
+```
+
+Если PostgreSQL и Keycloak запущены в Docker Compose, используйте overlay:
+
+```bash
+helm upgrade --install bank ./helm/bank-app \
+  -n bank-dev \
+  -f helm/bank-app/values-dev.yaml \
+  -f helm/bank-app/values-dev-docker.yaml
+```
+
+Для Docker Desktop подходит `host.docker.internal`, для minikube —
+`host.minikube.internal`, для kind нужно указать IP хоста в overlay.
+
+Kafka использует PVC, поэтому в кластере должен быть StorageClass по умолчанию:
+
+```bash
+kubectl get storageclass
+```
+
+Если его нет, установите provisioner или задайте класс явно:
+
+```bash
+helm upgrade --install bank ./helm/bank-app -n bank-dev \
+  -f helm/bank-app/values-dev.yaml \
+  --set kafka.persistence.storageClass=local-path
+```
+
+Kafka запускается с `fsGroup: 1000`, чтобы могла писать в PVC.
+
+Проверка чарта и удаление:
+
+```bash
+helm lint ./helm/bank-app
+helm template bank ./helm/bank-app -n bank-dev -f helm/bank-app/values-dev.yaml
+helm uninstall bank -n bank-dev
+```
