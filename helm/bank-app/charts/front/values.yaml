@@ -1,0 +1,20 @@
+replicas: 1
+image:
+  repository: bank-app-front
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+service:
+  enabled: true
+  port: 8080
+config:
+  SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+  EUREKA_URL: http://discovery-server:8761/eureka/
+  CONFIG_SERVER_URL: http://config-server:8888
+  GATEWAY_BASE_URL: http://gateway
+  FRONT_CLIENT_SECRET: front-secret
+  KEYCLOAK_ISSUER: http://localhost:8180/realms/bank
+  KEYCLOAK_AUTHORIZATION_URI: http://localhost:8180/realms/bank/protocol/openid-connect/auth
+  KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/bank/protocol/openid-connect/token
+  KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/bank/protocol/openid-connect/certs
+  KEYCLOAK_USERINFO_URI: http://keycloak:8080/realms/bank/protocol/openid-connect/userinfo
+  KEYCLOAK_END_SESSION_URI: http://localhost:8180/realms/bank/protocol/openid-connect/logout

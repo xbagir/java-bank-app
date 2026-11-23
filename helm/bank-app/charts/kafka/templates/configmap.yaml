@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-{{ .Chart.Name }}-topics
+data:
+  topic.name: {{ .Values.topic.name | quote }}
+  topic.partitions: {{ .Values.topic.partitions | quote }}
+  topic.replication-factor: {{ .Values.topic.replicationFactor | quote }}

@@ -83,12 +83,7 @@ public class OutboxEvent {
         this.retryCount++;
         this.lastError = error;
         this.lockedAt = null;
-        if (this.retryCount >= maxAttempts) {
-            this.status = Status.FAILED;
-            this.processedAt = Instant.now();
-        } else {
-            this.status = Status.PENDING;
-        }
+        this.status = Status.PENDING;
     }
 
     public Long getId() {

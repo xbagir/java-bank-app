@@ -1,0 +1,11 @@
+replicas: 1
+image:
+  repository: bank-app-discovery-server
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+service:
+  enabled: true
+  port: 8761
+config:
+  SERVER_PORT: "8761"
+  SPRING_APPLICATION_NAME: discovery-server

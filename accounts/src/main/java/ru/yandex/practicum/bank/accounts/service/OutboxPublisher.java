@@ -7,7 +7,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import ru.yandex.practicum.bank.accounts.client.NotificationClient;
+import ru.yandex.practicum.bank.accounts.client.KafkaNotificationPublisher;
 import ru.yandex.practicum.bank.accounts.client.NotificationRequest;
 import ru.yandex.practicum.bank.accounts.model.OutboxEvent;
 import ru.yandex.practicum.bank.accounts.repository.OutboxEventRepository;
@@ -21,16 +21,16 @@ public class OutboxPublisher {
     private static final Logger log = LoggerFactory.getLogger(OutboxPublisher.class);
 
     private final OutboxEventRepository outboxEventRepository;
-    private final NotificationClient notificationClient;
+    private final KafkaNotificationPublisher notificationPublisher;
     private final int maxAttempts;
     private final TransactionTemplate transactionTemplate;
 
     public OutboxPublisher(OutboxEventRepository outboxEventRepository,
-                           NotificationClient notificationClient,
+                           KafkaNotificationPublisher notificationPublisher,
                            @Value("${outbox.max-attempts:5}") int maxAttempts,
                            PlatformTransactionManager transactionManager) {
         this.outboxEventRepository = outboxEventRepository;
-        this.notificationClient = notificationClient;
+        this.notificationPublisher = notificationPublisher;
         this.maxAttempts = maxAttempts;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
@@ -47,7 +47,7 @@ public class OutboxPublisher {
             return;
         }
         for (OutboxEvent event : batch) {
-            boolean delivered = notificationClient.send(new NotificationRequest(
+            boolean delivered = notificationPublisher.send(new NotificationRequest(
                     event.getEventId(), event.getRecipient(), event.getType(), event.getMessage()));
             transactionTemplate.executeWithoutResult(status -> {
                 OutboxEvent current = outboxEventRepository.findById(event.getId()).orElse(null);

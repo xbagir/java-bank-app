@@ -1,0 +1,40 @@
+{{- if ne (int .Values.topic.replicationFactor) 1 }}
+{{- fail "kafka.topic.replicationFactor must be 1 for the single-broker KRaft cluster" }}
+{{- end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-{{ .Chart.Name }}-create-topics
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "5"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 20
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: create-topics
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              until /opt/kafka/bin/kafka-topics.sh --bootstrap-server {{ .Chart.Name }}:9092 --list >/dev/null 2>&1; do sleep 2; done
+              /opt/kafka/bin/kafka-topics.sh --create --if-not-exists --bootstrap-server {{ .Chart.Name }}:9092 --topic "$TOPIC" --partitions "$PARTITIONS" --replication-factor "$REPLICATION_FACTOR"
+          env:
+            - name: TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Release.Name }}-{{ .Chart.Name }}-topics
+                  key: topic.name
+            - name: PARTITIONS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Release.Name }}-{{ .Chart.Name }}-topics
+                  key: topic.partitions
+            - name: REPLICATION_FACTOR
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Release.Name }}-{{ .Chart.Name }}-topics
+                  key: topic.replication-factor

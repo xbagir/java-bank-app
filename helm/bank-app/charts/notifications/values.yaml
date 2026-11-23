@@ -1,0 +1,19 @@
+replicas: 1
+image:
+  repository: bank-app-notifications
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+service:
+  enabled: false
+  port: 8085
+config:
+  SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+  EUREKA_URL: http://discovery-server:8761/eureka/
+  CONFIG_SERVER_URL: http://config-server:8888
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_USER: notifications_user
+  DB_PASSWORD: notifications_pass
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  KAFKA_TOPIC_NOTIFICATIONS: bank.notifications
+  KAFKA_CONSUMER_GROUP_ID: bank-notifications

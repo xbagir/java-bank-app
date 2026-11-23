@@ -28,9 +28,9 @@ class GatewayRoutingTest {
                 .collectList()
                 .block();
 
-        assertThat(routes).isNotNull().hasSize(4);
+        assertThat(routes).isNotNull().hasSize(3);
         assertThat(routes).extracting(RouteDefinition::getId)
-                .containsExactlyInAnyOrder("accounts", "cash", "transfer", "notifications");
+                .containsExactlyInAnyOrder("accounts", "cash", "transfer");
 
         assertThat(routes).allSatisfy(route -> {
             assertThat(route.getUri().toString()).startsWith("lb://");

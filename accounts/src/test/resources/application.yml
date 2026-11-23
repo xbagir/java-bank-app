@@ -22,17 +22,6 @@ spring:
         jwt:
           issuer-uri: http://localhost:8180/realms/bank
           jwk-set-uri: http://localhost:8180/realms/bank/protocol/openid-connect/certs
-      client:
-        registration:
-          keycloak:
-            provider: keycloak
-            client-id: accounts-service
-            client-secret: accounts-secret
-            authorization-grant-type: client_credentials
-            scope: notifications.write
-        provider:
-          keycloak:
-            token-uri: http://localhost:8180/realms/bank/protocol/openid-connect/token
 
 bank:
   security:
@@ -50,3 +39,7 @@ outbox:
 
 reconciliation:
   delay: 60000
+
+kafka:
+  topic:
+    notifications: bank.notifications

@@ -1,0 +1,20 @@
+replicas: 1
+image:
+  repository: bank-app-accounts
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+service:
+  enabled: true
+  port: 8082
+config:
+  SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+  EUREKA_URL: http://discovery-server:8761/eureka/
+  CONFIG_SERVER_URL: http://config-server:8888
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_USER: accounts_user
+  DB_PASSWORD: accounts_pass
+  KEYCLOAK_ISSUER: http://localhost:8180/realms/bank
+  KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/bank/protocol/openid-connect/certs
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  KAFKA_TOPIC_NOTIFICATIONS: bank.notifications

@@ -60,23 +60,6 @@
       }
     },
     {
-      "clientId": "accounts-service",
-      "name": "Accounts Service",
-      "enabled": true,
-      "protocol": "openid-connect",
-      "publicClient": false,
-      "secret": "accounts-secret",
-      "standardFlowEnabled": false,
-      "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
-      "serviceAccountsEnabled": true,
-      "fullScopeAllowed": true,
-      "defaultClientScopes": [
-        "service",
-        "notifications.write"
-      ]
-    },
-    {
       "clientId": "cash-service",
       "name": "Cash Service",
       "enabled": true,
@@ -91,8 +74,7 @@
       "defaultClientScopes": [
         "service",
         "accounts.read",
-        "accounts.write",
-        "notifications.write"
+        "accounts.write"
       ]
     },
     {
@@ -110,8 +92,7 @@
       "defaultClientScopes": [
         "service",
         "accounts.read",
-        "accounts.transfer",
-        "notifications.write"
+        "accounts.transfer"
       ]
     }
   ],
@@ -164,15 +145,6 @@
     {
       "name": "transfer.write",
       "description": "Create transfers",
-      "protocol": "openid-connect",
-      "attributes": {
-        "include.in.token.scope": "true",
-        "display.on.consent.screen": "false"
-      }
-    },
-    {
-      "name": "notifications.write",
-      "description": "Send notifications",
       "protocol": "openid-connect",
       "attributes": {
         "include.in.token.scope": "true",
